@@ -20,6 +20,7 @@ export class ThinqNotifierStack extends cdk.Stack {
     const fn = new lambda.NodejsFunction(this, "LgNotifierLambda", {
       runtime: Runtime.NODEJS_14_X,
       entry: path.resolve(__dirname, "../lambda/index.ts"),
+      timeout: cdk.Duration.seconds(10),
       bundling: {
         minify: true,
         sourceMap: true,
