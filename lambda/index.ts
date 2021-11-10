@@ -28,14 +28,15 @@ export const handler = async (): Promise<void> => {
   const events = res.data.result.pushSendList as Event[];
   if (events.length && !!events[0].sendDate) {
     const mostRecentEvent = events[0];
-    const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000)
+    const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
     const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
-    console.log(`Most recent event was at ${eventDate.toLocaleString()}`)
+    console.log(`Most recent event was at ${eventDate.toLocaleString()}`);
 
     if (eventDate < thresholdTime && isWasherEvent(eventMessage)) {
+      console.log("Sending notification that washer needs to be unloaded.");
       await new SNS({ region: "us-east-1" })
         .publish({
-          Message: `The washer finished more than ${thresholdHours} hours ago. Don't forget to unload the clothes!`,
+          Message: `Hello,\n\nThe washer finished more than ${thresholdHours} hours ago.\n\nDon't forget to unload the clothes!`,
           TopicArn: process.env.TOPIC_ARN,
         })
         .promise();
@@ -44,7 +45,12 @@ export const handler = async (): Promise<void> => {
 };
 
 function isWasherEvent(eventMessage: EventMessage): boolean {
-  return eventMessage.extra.type === "201" || eventMessage.aps.alert.body.toLocaleLowerCase().startsWith("washer has finished a cycle ");
+  return (
+    eventMessage.extra.type === "201" ||
+    eventMessage.aps.alert.body
+      .toLocaleLowerCase()
+      .startsWith("washer has finished a cycle ")
+  );
 }
 
 interface Event {
@@ -63,3 +69,5 @@ interface EventMessage {
     type: string;
   };
 }
+
+handler();
