@@ -51,6 +51,10 @@ async function getAppSecrets(
 async function findDryer(api: ThinQApi) {
   return (await api.getListDevices())
     .map((device) => new Device(device))
+    .filter(device => {
+      console.log(JSON.stringify(device, undefined, 2));
+      return true;
+    })
     .find((device) => Number(device.data.deviceType) === DeviceType.DRYER);
 }
 
@@ -71,6 +75,7 @@ async function getRecentEvents(
   console.log(
     `Successfully retrieved ThinQ event history. # of events: ${events.length}`
   );
+  console.log(JSON.stringify(events, undefined, 2));
   return events;
 }
 
@@ -104,11 +109,17 @@ function isDryerOff(dryer?: Device): boolean {
 }
 
 function shouldSendRepeatNotification(thresholdTime: Date): boolean {
+  const notificationFreqHrs = Number(process.env.NOTIFICATION_FREQ_HRS);
+  const maxNotifications = Number(process.env.MAX_NOTIFICATIONS);
+
   const msSinceThreshold = Date.now() - thresholdTime.getTime();
   const hoursSinceThreshold = msSinceThreshold / (60 * 60 * 1000);
-  const notificationFreqHrs = Number(process.env.NOTIFICATION_FREQ_HRS);
-  console.log({ hoursSinceThreshold, notificationFreqHrs });
-  return hoursSinceThreshold % notificationFreqHrs < 1;
+
+  console.log({ hoursSinceThreshold, notificationFreqHrs, maxNotifications });
+  return (
+    hoursSinceThreshold % notificationFreqHrs < 1 &&
+    Math.floor(hoursSinceThreshold / notificationFreqHrs) <= maxNotifications
+  );
 }
 
 interface Event {
