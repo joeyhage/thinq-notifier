@@ -1,48 +1,37 @@
 import { SecretsManager, SNS } from "aws-sdk";
-import { ThinQApi } from "./api";
+import { DeviceType } from "homebridge-lg-thinq/dist/lib/constants";
+import { Device } from "homebridge-lg-thinq/dist/lib/Device";
 import { URL } from "url";
+import { ThinQApi } from "./api";
 
 export const handler = async (): Promise<void> => {
+  const region = process.env.AWS_REGION;
   try {
-    const { SecretString } = await new SecretsManager({ region: "us-east-1" })
-      .getSecretValue({ SecretId: "live/thinq-notifier/lg" })
-      .promise();
-    const { username, password, clientId } = JSON.parse(SecretString!);
+    const { username, password, clientId } = await getAppSecrets(region);
 
     const api = new ThinQApi();
     api.setUsernamePassword(username, password);
     await api.ready();
 
-    const thresholdHours = Number(process.env.NOTIFICATION_THRESHOLD_HOURS);
-    const thresholdTime = new Date();
-    thresholdTime.setHours(new Date().getHours() - thresholdHours);
+    const dryer = await findDryer(api);
+    const events = await getRecentEvents(api, clientId);
 
-    const res = await api.httpClient.request({
-      method: "GET",
-      url: new URL("service/users/push/send-Backward-history", api.baseUrl)
-        .href,
-      headers: {
-        ...api.defaultHeaders,
-        "x-client-id": clientId,
-      },
-    });
-
-    const events = res.data.result.pushSendList as Event[];
-    console.log(`Successfully retrieved ThinQ event history. # of events: ${events.length}`);
-    if (events.length && !!events[0].sendDate) {
+    if (isDryerOff(dryer) && events.length && !!events[0].sendDate) {
       const mostRecentEvent = events[0];
       const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
       const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
       console.log(`Most recent event was at ${eventDate.toLocaleString()}`);
 
-      if (eventDate < thresholdTime && isWasherEvent(eventMessage)) {
-        console.log("Sending notification that washer needs to be unloaded.");
-        await new SNS({ region: "us-east-1" })
-          .publish({
-            Message: `Hello,\n\nThe washer finished more than ${thresholdHours} hours ago.\n\nDon't forget to unload the clothes!`,
-            TopicArn: process.env.TOPIC_ARN,
-          })
-          .promise();
+      const thresholdHours = Number(process.env.NOTIFICATION_THRESHOLD_HRS);
+      const thresholdTime = new Date();
+      thresholdTime.setHours(new Date().getHours() - thresholdHours);
+
+      if (
+        eventDate < thresholdTime &&
+        shouldSendRepeatNotification(thresholdTime) &&
+        isWasherEvent(eventMessage)
+      ) {
+        await publishMessage(region, thresholdHours);
       }
     }
   } catch (e: any) {
@@ -50,13 +39,74 @@ export const handler = async (): Promise<void> => {
   }
 };
 
-function isWasherEvent(eventMessage: EventMessage): boolean {
-  return (
-    eventMessage.extra.type === "201" ||
-    eventMessage.aps.alert.body
-      .toLocaleLowerCase()
-      .startsWith("washer has finished a cycle ")
+async function getAppSecrets(
+  region = "us-east-1"
+): Promise<Record<string, string>> {
+  const { SecretString } = await new SecretsManager({ region })
+    .getSecretValue({ SecretId: process.env.SECRET_NAME! })
+    .promise();
+  return JSON.parse(SecretString!);
+}
+
+async function findDryer(api: ThinQApi) {
+  return (await api.getListDevices())
+    .map((device) => new Device(device))
+    .find((device) => Number(device.data.deviceType) === DeviceType.DRYER);
+}
+
+async function getRecentEvents(
+  api: ThinQApi,
+  clientId: string
+): Promise<Event[]> {
+  const res = await api.httpClient.request({
+    method: "GET",
+    url: new URL("service/users/push/send-Backward-history", api.baseUrl).href,
+    headers: {
+      ...api.defaultHeaders,
+      "x-client-id": clientId,
+    },
+  });
+
+  const events = res.data.result.pushSendList as Event[];
+  console.log(
+    `Successfully retrieved ThinQ event history. # of events: ${events.length}`
   );
+  return events;
+}
+
+async function publishMessage(
+  region = "us-east-1",
+  thresholdHours: number
+): Promise<void> {
+  console.log("Sending notification that washer needs to be unloaded.");
+  await new SNS({ region })
+    .publish({
+      Message: `Hello,\n\nThe washer finished more than ${thresholdHours} hours ago.\n\nDon't forget to unload the clothes!`,
+      TopicArn: process.env.TOPIC_ARN,
+    })
+    .promise();
+}
+
+function isWasherEvent(eventMessage: EventMessage): boolean {
+  console.log(`Event type: ${eventMessage.extra.type}`);
+  return (
+    Number(eventMessage.extra.type) === DeviceType.WASHER ||
+    Number(eventMessage.extra.type) === DeviceType.WASHER_NEW ||
+    Number(eventMessage.extra.type) === DeviceType.WASH_TOWER
+  );
+}
+
+function isDryerOff(dryer?: Device): boolean {
+  console.log(`Dryer state: ${dryer?.snapshot?.washerDryer?.state}`);
+  return !dryer || NOT_RUNNING_STATUS.includes(dryer.snapshot.washerDryer.state);
+}
+
+function shouldSendRepeatNotification(thresholdTime: Date): boolean {
+  const msSinceThreshold = Date.now() - thresholdTime.getTime();
+  const hoursSinceThreshold = msSinceThreshold / (60 * 60 * 1000);
+  const notificationFreqHrs = Number(process.env.NOTIFICATION_FREQ_HRS);
+  console.log({ hoursSinceThreshold, notificationFreqHrs });
+  return hoursSinceThreshold % notificationFreqHrs < 1;
 }
 
 interface Event {
@@ -76,4 +126,14 @@ interface EventMessage {
   };
 }
 
-handler();
+const NOT_RUNNING_STATUS = [
+  "COOLDOWN",
+  "POWEROFF",
+  "POWERFAIL",
+  "INITIAL",
+  "PAUSE",
+  "AUDIBLE_DIAGNOSIS",
+  "FIRMWARE",
+  "COURSE_DOWNLOAD",
+  "ERROR",
+];
