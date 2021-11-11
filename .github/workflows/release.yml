@@ -41,9 +41,9 @@ jobs:
             await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: context.ref.replace('refs/tags/v', ''),
+              tag_name: context.ref.replace('refs/tags/', ''),
               target_commitish: context.sha,
-              name: context.ref.replace('refs/tags/v', ''),
+              name: context.ref.replace('refs/tags/', ''),
               draft: false,
               prerelease: false,
               generate_release_notes: true,
