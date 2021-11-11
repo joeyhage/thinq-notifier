@@ -17,6 +17,8 @@ export class ThinqNotifierStack extends cdk.Stack {
       displayName: "ThinQ notification topic",
     });
 
+    const secretName = "live/thinq-notifier/lg";
+
     const fn = new lambda.NodejsFunction(this, "LgNotifierLambda", {
       runtime: Runtime.NODEJS_14_X,
       entry: path.resolve(__dirname, "../lambda/index.ts"),
@@ -29,15 +31,18 @@ export class ThinqNotifierStack extends cdk.Stack {
         externalModules: ["aws-sdk"],
       },
       environment: {
-        NOTIFICATION_THRESHOLD_HOURS: "3",
+        AWS_REGION: process.env.AWS_REGION!,
+        NOTIFICATION_FREQ_HRS: "3",
+        NOTIFICATION_THRESHOLD_HRS: "3",
         TOPIC_ARN: topic.topicArn,
+        SECRET_NAME: secretName,
       },
     });
 
     const secret = secretsmanager.Secret.fromSecretNameV2(
       this,
       "MyQLogin",
-      "live/thinq-notifier/lg"
+      secretName
     );
     secret.grantRead(fn.role as iam.IGrantable);
 
