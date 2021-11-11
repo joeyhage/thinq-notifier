@@ -1,4 +1,4 @@
-import { SecretsManager, SNS } from "aws-sdk";
+import { SNS, SSM } from "aws-sdk";
 import { DeviceType } from "homebridge-lg-thinq/dist/lib/constants";
 import { Device } from "homebridge-lg-thinq/dist/lib/Device";
 import { URL } from "url";
@@ -42,10 +42,10 @@ export const handler = async (): Promise<void> => {
 async function getAppSecrets(
   region = "us-east-1"
 ): Promise<Record<string, string>> {
-  const { SecretString } = await new SecretsManager({ region })
-    .getSecretValue({ SecretId: process.env.SECRET_NAME! })
+  const { Parameter } = await new SSM({ region })
+    .getParameter({ Name: process.env.SECRET_NAME!, WithDecryption: true })
     .promise();
-  return JSON.parse(SecretString!);
+  return JSON.parse(Parameter?.Value || "{}");
 }
 
 async function findDryer(api: ThinQApi) {
@@ -98,7 +98,9 @@ function isWasherEvent(eventMessage: EventMessage): boolean {
 
 function isDryerOff(dryer?: Device): boolean {
   console.log(`Dryer state: ${dryer?.snapshot?.washerDryer?.state}`);
-  return !dryer || NOT_RUNNING_STATUS.includes(dryer.snapshot.washerDryer.state);
+  return (
+    !dryer || NOT_RUNNING_STATUS.includes(dryer.snapshot.washerDryer.state)
+  );
 }
 
 function shouldSendRepeatNotification(thresholdTime: Date): boolean {
