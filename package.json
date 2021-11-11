@@ -1,6 +1,6 @@
 {
   "name": "thinq-notifier",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "bin": {
     "thinq-notifier": "bin/thinq-notifier.js"
   },
