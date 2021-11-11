@@ -1,12 +1,12 @@
 import * as events from "@aws-cdk/aws-events";
 import * as targets from "@aws-cdk/aws-events-targets";
+import * as iam from "@aws-cdk/aws-iam";
 import { Runtime } from "@aws-cdk/aws-lambda";
 import * as lambda from "@aws-cdk/aws-lambda-nodejs";
 import * as secretsmanager from "@aws-cdk/aws-secretsmanager";
 import * as sns from "@aws-cdk/aws-sns";
 import * as subscriptions from "@aws-cdk/aws-sns-subscriptions";
 import * as cdk from "@aws-cdk/core";
-import * as iam from "@aws-cdk/aws-iam";
 import * as path from "path";
 
 export class ThinqNotifierStack extends cdk.Stack {

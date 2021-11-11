@@ -31,3 +31,20 @@ jobs:
           npm run deploy -- --require-approval never --progress events
         env:
           SNS_EMAIL: ${{ secrets.SNS_EMAIL }}
+      
+      - name: Create release
+        id: create-release
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: context.ref.replace('refs/tags/v', ''),
+              target_commitish: context.sha,
+              name: context.ref.replace('refs/tags/v', ''),
+              draft: false,
+              prerelease: false,
+              generate_release_notes: true,
+            });
