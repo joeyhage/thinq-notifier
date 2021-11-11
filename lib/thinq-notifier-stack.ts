@@ -31,7 +31,6 @@ export class ThinqNotifierStack extends cdk.Stack {
         externalModules: ["aws-sdk"],
       },
       environment: {
-        AWS_REGION: process.env.AWS_REGION!,
         NOTIFICATION_FREQ_HRS: "3",
         NOTIFICATION_THRESHOLD_HRS: "3",
         TOPIC_ARN: topic.topicArn,
