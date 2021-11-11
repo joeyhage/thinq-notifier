@@ -3,9 +3,9 @@ import * as targets from "@aws-cdk/aws-events-targets";
 import * as iam from "@aws-cdk/aws-iam";
 import { Runtime } from "@aws-cdk/aws-lambda";
 import * as lambda from "@aws-cdk/aws-lambda-nodejs";
-import * as secretsmanager from "@aws-cdk/aws-secretsmanager";
 import * as sns from "@aws-cdk/aws-sns";
 import * as subscriptions from "@aws-cdk/aws-sns-subscriptions";
+import * as ssm from "@aws-cdk/aws-ssm";
 import * as cdk from "@aws-cdk/core";
 import * as path from "path";
 
@@ -17,7 +17,7 @@ export class ThinqNotifierStack extends cdk.Stack {
       displayName: "ThinQ notification topic",
     });
 
-    const secretName = "live/thinq-notifier/lg";
+    const secretName = "/live/thinq-notifier/lg";
 
     const fn = new lambda.NodejsFunction(this, "LgNotifierLambda", {
       runtime: Runtime.NODEJS_14_X,
@@ -38,12 +38,12 @@ export class ThinqNotifierStack extends cdk.Stack {
       },
     });
 
-    const secret = secretsmanager.Secret.fromSecretNameV2(
+    const parameter = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
-      "MyQLogin",
-      secretName
+      "ThinQLogin",
+      { parameterName: secretName, version: 1 }
     );
-    secret.grantRead(fn.role as iam.IGrantable);
+    parameter.grantRead(fn.role as iam.IGrantable);
 
     const eventRule = new events.Rule(this, "LambdaScheduleRule", {
       ruleName: "thinq-check-hourly",
