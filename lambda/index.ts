@@ -3,6 +3,7 @@ import { DeviceType } from "homebridge-lg-thinq/dist/lib/constants";
 import { Device } from "homebridge-lg-thinq/dist/lib/Device";
 import { URL } from "url";
 import { ThinQApi } from "./api";
+import { determineThresholdDatetime, formatDate, hasThresholdTimePassed } from "./datetime-util";
 
 export const handler = async (): Promise<void> => {
   const region = process.env.AWS_REGION;
@@ -20,17 +21,18 @@ export const handler = async (): Promise<void> => {
       const mostRecentEvent = events[0];
       const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
       const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
-      const formattedEventDate = formatDate(eventDate, dryer?.data.timezoneCode);
+      const formattedEventDate = formatDate(
+        eventDate,
+        dryer?.data.timezoneCode
+      );
 
+      const thresholdDatetime = determineThresholdDatetime(eventDate);
       console.log(`Most recent event was at ${formattedEventDate}`);
-
-      const thresholdHours = Number(process.env.NOTIFICATION_THRESHOLD_HRS);
-      const thresholdTime = new Date();
-      thresholdTime.setHours(new Date().getHours() - thresholdHours);
+      console.log(`Threshold datetime is ${formatDate(thresholdDatetime, dryer?.data.timezoneCode)}`);
 
       if (
-        eventDate < thresholdTime &&
-        shouldSendRepeatNotification(thresholdTime) &&
+        hasThresholdTimePassed(thresholdDatetime) &&
+        shouldSendRepeatNotification(thresholdDatetime) &&
         isWasherCycleFinished(eventMessage) &&
         !(await wasLatestWashTubClean(api, clientId, eventMessage))
       ) {
@@ -47,18 +49,6 @@ export const handler = async (): Promise<void> => {
     );
   }
 };
-
-function formatDate(date: Date, timezoneCode?: string): string {
-  return new Intl.DateTimeFormat("default", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    hour12: true,
-    timeZone: timezoneCode,
-    timeZoneName: "short",
-  }).format(date);
-}
 
 async function getAppSecrets(
   region = "us-east-1"
@@ -165,17 +155,17 @@ function isDryerOff(dryer?: Device): boolean {
   );
 }
 
-function shouldSendRepeatNotification(thresholdTime: Date): boolean {
+export function shouldSendRepeatNotification(thresholdDatetime: Date): boolean {
   const notificationFreqHrs = Number(process.env.NOTIFICATION_FREQ_HRS);
   const maxNotifications = Number(process.env.MAX_NOTIFICATIONS);
 
-  const msSinceThreshold = Date.now() - thresholdTime.getTime();
+  const msSinceThreshold = Date.now() - thresholdDatetime.getTime();
   const hoursSinceThreshold = msSinceThreshold / (60 * 60 * 1000);
 
   console.log({ hoursSinceThreshold, notificationFreqHrs, maxNotifications });
   return (
     hoursSinceThreshold % notificationFreqHrs < 1 &&
-    Math.floor(hoursSinceThreshold / notificationFreqHrs) <= maxNotifications
+    Math.floor(hoursSinceThreshold / notificationFreqHrs) < maxNotifications
   );
 }
 
