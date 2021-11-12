@@ -1,6 +1,5 @@
 
 export function formatDate(date: Date, timezoneCode?: string): string {
-  console.log(date, timezoneCode);
   return new Intl.DateTimeFormat("default", {
     month: "short",
     day: "numeric",
