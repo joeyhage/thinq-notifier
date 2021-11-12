@@ -30,4 +30,3 @@ The examples below assume:
 ## Current limitations
 
 - A notification will not be sent if the washer and dryer are running at the same time and the washer finishes first. It will see the most recent event was from the dryer and not see that the washer finished right before that which would mean the washer is still full.
-- If the latest event was the washer finishing a tub clean, it will still send a notification even though there are no clothes to dry.

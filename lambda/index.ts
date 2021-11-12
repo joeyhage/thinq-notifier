@@ -20,7 +20,9 @@ export const handler = async (): Promise<void> => {
       const mostRecentEvent = events[0];
       const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
       const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
-      console.log(`Most recent event was at ${eventDate.toLocaleString()}`);
+      const formattedEventDate = formatDate(eventDate, dryer?.data.timezoneCode);
+
+      console.log(`Most recent event was at ${formattedEventDate}`);
 
       const thresholdHours = Number(process.env.NOTIFICATION_THRESHOLD_HRS);
       const thresholdTime = new Date();
@@ -29,15 +31,34 @@ export const handler = async (): Promise<void> => {
       if (
         eventDate < thresholdTime &&
         shouldSendRepeatNotification(thresholdTime) &&
-        isWasherEvent(eventMessage)
+        isWasherCycleFinished(eventMessage) &&
+        !(await wasLatestWashTubClean(api, clientId, eventMessage))
       ) {
-        await publishMessage(region, thresholdHours);
+        await publishUnloadMessage(formattedEventDate, region);
       }
+    } else if (typeof dryer === "undefined" || !events.length) {
+      throw new Error("ThinQ API returned an unexpected response");
     }
   } catch (e: any) {
-    console.error(`Uncaught exception: ${e.message}`);
+    console.error(`Uncaught exception`, e);
+    await publishMessage(
+      e.message || "Uncaught exception. Check logs.",
+      region
+    );
   }
 };
+
+function formatDate(date: Date, timezoneCode?: string): string {
+  return new Intl.DateTimeFormat("default", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+    timeZone: timezoneCode,
+    timeZoneName: "short",
+  }).format(date);
+}
 
 async function getAppSecrets(
   region = "us-east-1"
@@ -48,13 +69,24 @@ async function getAppSecrets(
   return JSON.parse(Parameter?.Value || "{}");
 }
 
+async function getThinqApi(
+  api: ThinQApi,
+  clientId: string,
+  url: string
+): Promise<any> {
+  return api.httpClient.request({
+    method: "GET",
+    url: new URL(url, api.baseUrl).href,
+    headers: {
+      ...api.defaultHeaders,
+      "x-client-id": clientId,
+    },
+  });
+}
+
 async function findDryer(api: ThinQApi) {
   return (await api.getListDevices())
     .map((device) => new Device(device))
-    .filter(device => {
-      console.log(JSON.stringify(device, undefined, 2));
-      return true;
-    })
     .find((device) => Number(device.data.deviceType) === DeviceType.DRYER);
 }
 
@@ -62,43 +94,68 @@ async function getRecentEvents(
   api: ThinQApi,
   clientId: string
 ): Promise<Event[]> {
-  const res = await api.httpClient.request({
-    method: "GET",
-    url: new URL("service/users/push/send-Backward-history", api.baseUrl).href,
-    headers: {
-      ...api.defaultHeaders,
-      "x-client-id": clientId,
-    },
-  });
+  const res = await getThinqApi(
+    api,
+    clientId,
+    "service/users/push/send-Backward-history"
+  );
 
-  const events = res.data.result.pushSendList as Event[];
+  const events = res.data?.result?.pushSendList || ([] as Event[]);
   console.log(
     `Successfully retrieved ThinQ event history. # of events: ${events.length}`
   );
-  console.log(JSON.stringify(events, undefined, 2));
   return events;
 }
 
-async function publishMessage(
-  region = "us-east-1",
-  thresholdHours: number
+async function publishUnloadMessage(
+  datetime: string,
+  region?: string
 ): Promise<void> {
-  console.log("Sending notification that washer needs to be unloaded.");
+  await publishMessage(
+    `Hello,\n\nThe washer finished at ${datetime}.\n\nDon't forget to unload the clothes!`,
+    region
+  );
+}
+
+async function publishMessage(
+  message: string,
+  region = "us-east-1"
+): Promise<void> {
+  console.log(`Sending notification with message: ${message}`);
   await new SNS({ region })
     .publish({
-      Message: `Hello,\n\nThe washer finished more than ${thresholdHours} hours ago.\n\nDon't forget to unload the clothes!`,
+      Message: message,
       TopicArn: process.env.TOPIC_ARN,
     })
     .promise();
 }
 
-function isWasherEvent(eventMessage: EventMessage): boolean {
-  console.log(`Event type: ${eventMessage.extra.type}`);
-  return (
-    Number(eventMessage.extra.type) === DeviceType.WASHER ||
-    Number(eventMessage.extra.type) === DeviceType.WASHER_NEW ||
-    Number(eventMessage.extra.type) === DeviceType.WASH_TOWER
+function isWasherCycleFinished(eventMessage: EventMessage): boolean {
+  console.log(
+    `Device type for event: ${eventMessage.extra.type}, event code: ${eventMessage.extra.code}, device name: ${eventMessage.extra.alias}`
   );
+  return (
+    Number(eventMessage.extra.code) === SUCCESSFUL_WASH_CODE &&
+    (Number(eventMessage.extra.type) === DeviceType.WASHER ||
+      Number(eventMessage.extra.type) === DeviceType.WASHER_NEW ||
+      Number(eventMessage.extra.type) === DeviceType.WASH_TOWER)
+  );
+}
+
+async function wasLatestWashTubClean(
+  api: ThinQApi,
+  clientId: string,
+  eventMessage: EventMessage
+): Promise<boolean> {
+  const res = await getThinqApi(
+    api,
+    clientId,
+    `service/laundry/${eventMessage.extra.id}/energy-history?type=count&count=1&washerType=M&sorting=1`
+  );
+  if (!res.data?.result?.item?.[0]?.course) {
+    throw new Error("Unable to determine the last wash type");
+  }
+  return res.data?.result?.item?.[0]?.course === "TUB_CLEAN";
 }
 
 function isDryerOff(dryer?: Device): boolean {
@@ -135,9 +192,14 @@ interface EventMessage {
     };
   };
   extra: {
+    id: string;
+    alias: string;
     type: string;
+    code: string;
   };
 }
+
+const SUCCESSFUL_WASH_CODE = 0;
 
 const NOT_RUNNING_STATUS = [
   "COOLDOWN",
