@@ -21,10 +21,18 @@
     "strictPropertyInitialization": false,
     "typeRoots": [
       "./node_modules/@types"
-    ]
+    ],
+    "skipLibCheck": true
   },
+  "include": [
+    "bin/**/*.ts",
+    "lambda/**/*.ts",
+    "lib/**/*.ts",
+    "test/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
-    "cdk.out"
+    "cdk.out",
+    ".github"
   ]
 }
