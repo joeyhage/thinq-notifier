@@ -42,7 +42,7 @@ export class ThinqNotifierStack extends cdk.Stack {
     const parameter = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
       "ThinQLogin",
-      { parameterName: secretName, version: 1 }
+      { parameterName: secretName, version: 2 }
     );
     parameter.grantRead(fn.role as iam.IGrantable);
 

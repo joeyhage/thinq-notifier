@@ -1,14 +1,21 @@
 import { SNS, SSM } from "aws-sdk";
+import axios from "axios";
 import { DeviceType } from "homebridge-lg-thinq/dist/lib/constants";
 import { Device } from "homebridge-lg-thinq/dist/lib/Device";
 import { URL } from "url";
 import { ThinQApi } from "./api";
-import { determineThresholdDatetime, formatDate, hasThresholdTimePassed } from "./datetime-util";
+import {
+  determineThresholdDatetime,
+  formatDate,
+  hasThresholdTimePassed
+} from "./datetime-util";
 
 export const handler = async (): Promise<void> => {
   const region = process.env.AWS_REGION;
   try {
-    const { username, password, clientId } = await getAppSecrets(region);
+    const { username, password, clientId, webookUrl } = await getAppSecrets(
+      region
+    );
 
     const api = new ThinQApi();
     api.setUsernamePassword(username, password);
@@ -28,7 +35,12 @@ export const handler = async (): Promise<void> => {
 
       const thresholdDatetime = determineThresholdDatetime(eventDate);
       console.log(`Most recent event was at ${formattedEventDate}`);
-      console.log(`Threshold datetime is ${formatDate(thresholdDatetime, dryer?.data.timezoneCode)}`);
+      console.log(
+        `Threshold datetime is ${formatDate(
+          thresholdDatetime,
+          dryer?.data.timezoneCode
+        )}`
+      );
 
       if (
         hasThresholdTimePassed(thresholdDatetime) &&
@@ -37,6 +49,7 @@ export const handler = async (): Promise<void> => {
         !(await wasLatestWashTubClean(api, clientId, eventMessage))
       ) {
         await publishUnloadMessage(formattedEventDate, region);
+        await triggerWebhook(webookUrl);
       }
     } else if (typeof dryer === "undefined" || !events.length) {
       throw new Error("ThinQ API returned an unexpected response");
@@ -169,6 +182,12 @@ export function shouldSendRepeatNotification(thresholdDatetime: Date): boolean {
   );
 }
 
+async function triggerWebhook(webookUrl?: string): Promise<void> {
+  if (webookUrl) {
+    await axios.get(webookUrl);
+  }
+}
+
 interface Event {
   message: string;
   sendDate: string;
@@ -202,3 +221,6 @@ const NOT_RUNNING_STATUS = [
   "COURSE_DOWNLOAD",
   "ERROR",
 ];
+
+process.env.SECRET_NAME = "/live/thinq-notifier/lg";
+handler();
