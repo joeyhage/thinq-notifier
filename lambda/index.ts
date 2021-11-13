@@ -7,7 +7,8 @@ import { ThinQApi } from "./api";
 import {
   determineThresholdDatetime,
   formatDate,
-  hasThresholdTimePassed
+  hasThresholdTimePassed,
+  isQuietHours,
 } from "./datetime-util";
 
 export const handler = async (): Promise<void> => {
@@ -28,19 +29,11 @@ export const handler = async (): Promise<void> => {
       const mostRecentEvent = events[0];
       const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
       const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
-      const formattedEventDate = formatDate(
-        eventDate,
-        dryer?.data.timezoneCode
-      );
+      const formattedEventDate = formatDate(eventDate);
 
       const thresholdDatetime = determineThresholdDatetime(eventDate);
       console.log(`Most recent event was at ${formattedEventDate}`);
-      console.log(
-        `Threshold datetime is ${formatDate(
-          thresholdDatetime,
-          dryer?.data.timezoneCode
-        )}`
-      );
+      console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
 
       if (
         hasThresholdTimePassed(thresholdDatetime) &&
@@ -48,8 +41,9 @@ export const handler = async (): Promise<void> => {
         isWasherCycleFinished(eventMessage) &&
         !(await wasLatestWashTubClean(api, clientId, eventMessage))
       ) {
-        await publishUnloadMessage(formattedEventDate, region);
-        await triggerWebhook(webookUrl);
+        isQuietHours()
+          ? await publishUnloadMessage(formattedEventDate, region)
+          : await triggerAnnouncement(webookUrl);
       }
     } else if (typeof dryer === "undefined" || !events.length) {
       throw new Error("ThinQ API returned an unexpected response");
@@ -182,8 +176,11 @@ export function shouldSendRepeatNotification(thresholdDatetime: Date): boolean {
   );
 }
 
-async function triggerWebhook(webookUrl?: string): Promise<void> {
-  if (webookUrl) {
+async function triggerAnnouncement(webookUrl?: string): Promise<void> {
+  console.log(
+    !!webookUrl ? "Triggering webhook url" : "No webhook url to trigger"
+  );
+  if (!!webookUrl) {
     await axios.get(webookUrl);
   }
 }
@@ -221,6 +218,3 @@ const NOT_RUNNING_STATUS = [
   "COURSE_DOWNLOAD",
   "ERROR",
 ];
-
-process.env.SECRET_NAME = "/live/thinq-notifier/lg";
-handler();
