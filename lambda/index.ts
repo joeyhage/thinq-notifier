@@ -14,7 +14,7 @@ import {
 export const handler = async (): Promise<void> => {
   const region = process.env.AWS_REGION;
   try {
-    const { username, password, clientId, webookUrl } = await getAppSecrets(
+    const { username, password, clientId, webhookUrl } = await getAppSecrets(
       region
     );
 
@@ -43,7 +43,7 @@ export const handler = async (): Promise<void> => {
       ) {
         isQuietHours()
           ? await publishUnloadMessage(formattedEventDate, region)
-          : await triggerAnnouncement(webookUrl);
+          : await triggerAnnouncement(webhookUrl);
       }
     } else if (typeof dryer === "undefined" || !events.length) {
       throw new Error("ThinQ API returned an unexpected response");
@@ -176,12 +176,12 @@ export function shouldSendRepeatNotification(thresholdDatetime: Date): boolean {
   );
 }
 
-async function triggerAnnouncement(webookUrl?: string): Promise<void> {
+async function triggerAnnouncement(webhookUrl?: string): Promise<void> {
   console.log(
-    !!webookUrl ? "Triggering webhook url" : "No webhook url to trigger"
+    !!webhookUrl ? "Triggering webhook url" : "No webhook url to trigger"
   );
-  if (!!webookUrl) {
-    await axios.get(webookUrl);
+  if (!!webhookUrl) {
+    await axios.get(webhookUrl);
   }
 }
 
