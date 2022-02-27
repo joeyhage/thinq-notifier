@@ -1,16 +1,17 @@
-import * as events from "@aws-cdk/aws-events";
-import * as targets from "@aws-cdk/aws-events-targets";
-import * as iam from "@aws-cdk/aws-iam";
-import { Runtime } from "@aws-cdk/aws-lambda";
-import * as lambda from "@aws-cdk/aws-lambda-nodejs";
-import * as sns from "@aws-cdk/aws-sns";
-import * as subscriptions from "@aws-cdk/aws-sns-subscriptions";
-import * as ssm from "@aws-cdk/aws-ssm";
-import * as cdk from "@aws-cdk/core";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as iam from "aws-cdk-lib/aws-iam";
+import { Runtime } from "aws-cdk-lib/aws-lambda";
+import * as lambda from "aws-cdk-lib/aws-lambda-nodejs";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
+import * as ssm from "aws-cdk-lib/aws-ssm";
+import * as cdk from "aws-cdk-lib/core";
+import { Construct } from "constructs";
 import * as path from "path";
 
 export class ThinqNotifierStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     const topic = new sns.Topic(this, "ThinqNotificationTopic", {
