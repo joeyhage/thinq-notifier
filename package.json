@@ -19,7 +19,7 @@
     "@types/uuid": "^8.3.4",
     "aws-cdk": "^2.14.0",
     "aws-cdk-lib": "^2.14.0",
-    "constructs": "^10.0.74",
+    "constructs": "^10.1.24",
     "esbuild": "^0.14.23",
     "jest": "^27.5.1",
     "ts-jest": "^27.1.3",
