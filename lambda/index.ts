@@ -132,7 +132,7 @@ function isWasherCycleFinished(eventMessage: EventMessage): boolean {
     `Device type for event: ${eventMessage.extra.type}, event code: ${eventMessage.extra.code}, device name: ${eventMessage.extra.alias}`
   );
   return (
-    Number(eventMessage.extra.code) === SUCCESSFUL_WASH_CODE &&
+    eventMessage.extra.code?.startsWith(SUCCESSFUL_WASH_PREFIX) &&
     (Number(eventMessage.extra.type) === DeviceType.WASHER ||
       Number(eventMessage.extra.type) === DeviceType.WASHER_NEW ||
       Number(eventMessage.extra.type) === DeviceType.WASH_TOWER)
@@ -205,7 +205,7 @@ interface EventMessage {
   };
 }
 
-const SUCCESSFUL_WASH_CODE = 0;
+const SUCCESSFUL_WASH_PREFIX = "0000";
 
 const NOT_RUNNING_STATUS = [
   "COOLDOWN",
