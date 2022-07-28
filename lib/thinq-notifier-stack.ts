@@ -33,7 +33,7 @@ export class ThinqNotifierStack extends cdk.Stack {
       },
       environment: {
         NOTIFICATION_FREQ_HRS: "3",
-        NOTIFICATION_THRESHOLD_HRS: "3",
+        NOTIFICATION_THRESHOLD_HRS: "2",
         MAX_NOTIFICATIONS: "2",
         QUIET_HOUR_START: "21", // 24 hour format
         QUIET_HOUR_END: "10", // 24 hour format
