@@ -143,6 +143,7 @@ async function publishMessage(
   console.log(`Sending notification with message: ${message}`);
   await new SNS({ region })
     .publish({
+      Subject: 'LG ThinQ Laundry Notification',
       Message: message,
       TopicArn: process.env.TOPIC_ARN,
     })
