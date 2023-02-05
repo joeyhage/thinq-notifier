@@ -9,6 +9,7 @@ import {
   formatDate,
   hasThresholdTimePassed,
   isQuietHours,
+  wasOneHourOrLessAgo,
 } from "./datetime-util";
 
 interface LaundryDevices {
@@ -23,23 +24,16 @@ export const handler = async (): Promise<void> => {
       region
     );
 
-    const api = new ThinQApi();
-    api.setUsernamePassword(username, password);
-    await api.ready();
+    const api = await initApi(username, password);
 
-    const {washer, dryer} = await findLaundry(api);
+    const { washer, dryer } = await findLaundry(api);
     const events = await getRecentEvents(api, clientId);
 
-    const cyclesSinceTubClean = Number(washer.snapshot?.washerDryer?.TCLCount || 0);
+    const cyclesSinceTubClean = Number(
+      washer.snapshot?.washerDryer?.TCLCount || 0
+    );
 
-    if (cyclesSinceTubClean > 30 && cyclesSinceTubClean % 3 === 0) {
-      await publishMessage(
-        `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
-        region
-      );
-    }
-
-    if (isDryerOff(dryer) && events.length && !!events[0].sendDate) {
+    if (newestEventValid(events)) {
       const mostRecentEvent = events[0];
       const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
       const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
@@ -50,10 +44,21 @@ export const handler = async (): Promise<void> => {
       console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
 
       if (
+        wasOneHourOrLessAgo(eventDate) &&
+        cyclesSinceTubClean > 30 &&
+        cyclesSinceTubClean % 3 === 0
+      ) {
+        await publishMessage(
+          `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
+          region
+        );
+      }
+
+      if (
+        isDryerOff(dryer) &&
         hasThresholdTimePassed(thresholdDatetime) &&
         shouldSendRepeatNotification(thresholdDatetime) &&
-        isWasherCycleFinished(eventMessage) &&
-        !(await wasLatestWashTubClean(api, clientId, eventMessage))
+        (await eventWasAWashCycle(eventMessage, api, clientId))
       ) {
         isQuietHours()
           ? await publishUnloadMessage(formattedEventDate, region)
@@ -70,6 +75,28 @@ export const handler = async (): Promise<void> => {
     );
   }
 };
+
+async function eventWasAWashCycle(
+  eventMessage: EventMessage,
+  api: ThinQApi,
+  clientId: string
+): Promise<boolean> {
+  return (
+    isWasherCycleFinished(eventMessage) &&
+    !(await wasLatestWashTubClean(api, clientId, eventMessage))
+  );
+}
+
+function newestEventValid(events: Event[]) {
+  return events.length && !!events[0].sendDate;
+}
+
+async function initApi(username: string, password: string): Promise<ThinQApi> {
+  const api = new ThinQApi();
+  api.setUsernamePassword(username, password);
+  await api.ready();
+  return api;
+}
 
 async function getAppSecrets(
   region = "us-east-1"
@@ -99,7 +126,7 @@ async function findLaundry(api: ThinQApi): Promise<LaundryDevices> {
   return (await api.getListDevices())
     .map((device) => new Device(device))
     .reduce((accum, device) => {
-      const deviceType = Number(device.data.deviceType)
+      const deviceType = Number(device.data.deviceType);
       if (washerTypes.includes(deviceType)) {
         accum.washer = device;
       } else if (deviceType === DeviceType.DRYER) {
@@ -143,7 +170,7 @@ async function publishMessage(
   console.log(`Sending notification with message: ${message}`);
   await new SNS({ region })
     .publish({
-      Subject: 'LG ThinQ Laundry Notification',
+      Subject: "LG ThinQ Laundry Notification",
       Message: message,
       TopicArn: process.env.TOPIC_ARN,
     })
@@ -154,10 +181,17 @@ function isWasherCycleFinished(eventMessage: EventMessage): boolean {
   console.log(
     `Device type for event: ${eventMessage.extra.type}, event code: ${eventMessage.extra.code}, device name: ${eventMessage.extra.alias}`
   );
-  return eventMessage.extra.code?.startsWith(SUCCESSFUL_WASH_PREFIX) && washerTypes.includes(Number(eventMessage.extra.type));
+  return (
+    eventMessage.extra.code?.startsWith(SUCCESSFUL_WASH_PREFIX) &&
+    washerTypes.includes(Number(eventMessage.extra.type))
+  );
 }
 
-const washerTypes = [DeviceType.WASHER, DeviceType.WASHER_NEW, DeviceType.WASH_TOWER];
+const washerTypes = [
+  DeviceType.WASHER,
+  DeviceType.WASHER_NEW,
+  DeviceType.WASH_TOWER,
+];
 
 async function wasLatestWashTubClean(
   api: ThinQApi,

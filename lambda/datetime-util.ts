@@ -10,6 +10,12 @@ export function formatDate(date: Date): string {
   }).format(date);
 }
 
+export function wasOneHourOrLessAgo(eventDate: Date): Boolean {
+  const thresholdDatetime = new Date(eventDate.getTime());
+  thresholdDatetime.setHours(eventDate.getHours() + 1);
+  return Date.now() <= thresholdDatetime.getTime();
+}
+
 export function determineThresholdDatetime(eventDate: Date): Date {
   const thresholdHours = Number(process.env.NOTIFICATION_THRESHOLD_HRS);
   const thresholdDatetime = new Date(eventDate.getTime());

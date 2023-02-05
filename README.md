@@ -2,6 +2,8 @@
 
 At the top of every hour, check if the last event was the completion of a washing machine cycle, if the event occurred more than the threshold number of hours prior to the current time, if the dryer has not been started yet, and if the notification frequency has been met. If all conditions are met, send an email using AWS SNS.
 
+Recently added: sending notifications when the washer has run more than 30 cycles without a tub clean cycle.
+
 ## Variables
 
 - **`NOTIFICATION_THRESHOLD_HRS`:** The number of hours to wait after the washer cycle finished to send the first reminder email.
