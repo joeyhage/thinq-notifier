@@ -33,39 +33,43 @@ export const handler = async (): Promise<void> => {
       washer.snapshot?.washerDryer?.TCLCount || 0
     );
 
-    if (newestEventValid(events)) {
-      const mostRecentEvent = events[0];
-      const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
-      const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
-      const formattedEventDate = formatDate(eventDate);
-
-      const thresholdDatetime = determineThresholdDatetime(eventDate);
-      console.log(`Most recent event was at ${formattedEventDate}`);
-      console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
-
-      if (
-        wasOneHourOrLessAgo(eventDate) &&
-        cyclesSinceTubClean > 30 &&
-        cyclesSinceTubClean % 3 === 0
-      ) {
-        await publishMessage(
-          `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
-          region
-        );
-      }
-
-      if (
-        isDryerOff(dryer) &&
-        hasThresholdTimePassed(thresholdDatetime) &&
-        shouldSendRepeatNotification(thresholdDatetime) &&
-        (await eventWasAWashCycle(eventMessage, api, clientId))
-      ) {
-        isQuietHours()
-          ? await publishUnloadMessage(formattedEventDate, region)
-          : await triggerAnnouncement(webhookUrl);
-      }
-    } else if (typeof dryer === "undefined" || !events.length) {
+    if (typeof dryer === "undefined" || !events.length || !events[0].sendDate) {
       throw new Error("ThinQ API returned an unexpected response");
+    }
+
+    const mostRecentEvent = events[0];
+    const eventMessage = JSON.parse(mostRecentEvent.message) as EventMessage;
+    const eventDate = new Date(Number(mostRecentEvent.sendDate) * 1000);
+    const formattedEventDate = formatDate(eventDate);
+
+    if (!(await eventWasAWashCycle(eventMessage, api, clientId))) {
+      console.info("Skipping event since it was not a wash cycle");
+      return;
+    }
+
+    const thresholdDatetime = determineThresholdDatetime(eventDate);
+    console.log(`Most recent event was at ${formattedEventDate}`);
+    console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
+
+    if (
+      wasOneHourOrLessAgo(eventDate) &&
+      cyclesSinceTubClean > 30 &&
+      cyclesSinceTubClean % 3 === 0
+    ) {
+      await publishMessage(
+        `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
+        region
+      );
+    }
+
+    if (
+      isDryerOff(dryer) &&
+      hasThresholdTimePassed(thresholdDatetime) &&
+      shouldSendRepeatNotification(thresholdDatetime)
+    ) {
+      isQuietHours()
+        ? await publishUnloadMessage(formattedEventDate, region)
+        : await triggerAnnouncement(webhookUrl);
     }
   } catch (e: any) {
     console.error(`Uncaught exception`, e);
