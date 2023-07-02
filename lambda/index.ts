@@ -36,10 +36,10 @@ export const handler = async (): Promise<void> => {
       ...thinqState,
       tclDue: cyclesSinceTubClean > 30,
       washerRunning: util.isRunning(washerSnapshot),
+      dryerRunning: util.isRunning(dryerSnapshot),
     };
 
-    const dryerRunning = util.isRunning(dryerSnapshot)
-    if (dryerRunning) {
+    if (newThinqState.dryerRunning) {
       newThinqState.dryerStartTime = now.getTime() - minToMs(washerSnapshot.initialTimeMinute - dryerSnapshot.remainTimeMinute);
     }
 
@@ -65,7 +65,7 @@ export const handler = async (): Promise<void> => {
       console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
 
       if (
-        !dryerRunning &&
+        !newThinqState.dryerRunning &&
         thinqState.dryerStartTime < thinqState.washEndTime &&
         hasThresholdTimePassed(thresholdDatetime) &&
         util.shouldSendRepeatNotification(thresholdDatetime)
@@ -73,7 +73,11 @@ export const handler = async (): Promise<void> => {
         isQuietHours()
           ? await util.publishUnloadMessage(formattedEndDate, region)
           : await util.triggerAnnouncement(webhookUrl);
+      } else {
+        console.log(`Conditions to send notification were not met.`);
       }
+    } else {
+      console.log('Not enough information is available to determine state.')
     }
 
     if (
