@@ -58,8 +58,10 @@ export const handler = async (): Promise<void> => {
       return;
     } else if (thinqState.washEndTime && thinqState.dryerStartTime) {
       const washEndDate = new Date(thinqState.washEndTime);
-      const formattedEndDate = formatDate(washEndDate);
-      console.log(`Most recent wash was at ${formattedEndDate}`);
+      const washEndDateStr = formatDate(washEndDate);
+      const dryerStartDateStr = formatDate(new Date(thinqState.dryerStartTime));
+      console.log(`Most recent wash cycle finished at ${washEndDateStr}, wash type: ${thinqState.washCourse}`);
+      console.log(`Most recent dry cycle started at ${dryerStartDateStr}`);
 
       const thresholdDatetime = determineThresholdDatetime(washEndDate);
       console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
@@ -71,7 +73,7 @@ export const handler = async (): Promise<void> => {
         util.shouldSendRepeatNotification(thresholdDatetime)
       ) {
         isQuietHours()
-          ? await util.publishUnloadMessage(formattedEndDate, region)
+          ? await util.publishUnloadMessage(washEndDateStr, region)
           : await util.triggerAnnouncement(webhookUrl);
       } else {
         console.log(`Conditions to send notification were not met.`);
