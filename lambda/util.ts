@@ -35,9 +35,7 @@ export async function initApi(
   return api;
 }
 
-export async function getAppSecrets(
-  region = "us-east-1"
-): Promise<AppSecrets> {
+export async function getAppSecrets(region = "us-east-1"): Promise<AppSecrets> {
   const { Parameter } = await new SSMClient({ region }).send(
     new GetParameterCommand({
       Name: process.env.SECRET_NAME!,
@@ -47,9 +45,7 @@ export async function getAppSecrets(
   return JSON.parse(Parameter?.Value || "{}");
 }
 
-export async function getThinQState(
-  region = "us-east-1"
-): Promise<ThinQState> {
+export async function getThinQState(region = "us-east-1"): Promise<ThinQState> {
   const { Parameter } = await new SSMClient({ region }).send(
     new GetParameterCommand({
       Name: process.env.THINQ_STATE_STORE!,
@@ -67,6 +63,7 @@ export async function setThinQState(
     new PutParameterCommand({
       Name: process.env.THINQ_STATE_STORE!,
       Value: JSON.stringify(newState),
+      Overwrite: true,
     })
   );
 }
@@ -203,9 +200,9 @@ export function hasNotAlreadyNotifiedThisCycle(
   cyclesSinceTubClean: number
 ) {
   return (
-    typeof thinqState.tclDue === 'boolean' &&
-    typeof thinqState.tclNotifiedAtCycle === 'number' &&
-    thinqState.tclDue !== newThinqState.tclDue ||
+    (typeof thinqState.tclDue === "boolean" &&
+      typeof thinqState.tclNotifiedAtCycle === "number" &&
+      thinqState.tclDue !== newThinqState.tclDue) ||
     thinqState.tclNotifiedAtCycle !== cyclesSinceTubClean
   );
 }
