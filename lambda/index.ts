@@ -38,9 +38,10 @@ export const handler = async (): Promise<void> => {
       tclDue: cyclesSinceTubClean > 30,
       washerRunning: util.isRunning(washerSnapshot),
       dryerRunning: util.isRunning(dryerSnapshot),
+      dryerRemainTimeMin: dryerSnapshot.remainTimeMinute
     };
 
-    if (newThinqState.dryerRunning) {
+    if (newThinqState.dryerRunning && (newThinqState.dryerRemainTimeMin ?? 0) > (thinqState.dryerRemainTimeMin ?? 0)) {
       newThinqState.dryerStartTime =
         now.getTime() -
         minToMs(

@@ -227,8 +227,9 @@ export interface AppSecrets {
 export interface ThinQState {
   washCourse?: string;
   washerRunning?: boolean;
-  dryerRunning?: boolean;
   washStartTime?: number;
+  dryerRemainTimeMin?: number;
+  dryerRunning?: boolean;
   dryerStartTime?: number;
   washEndTime?: number;
   tclDue?: boolean;
