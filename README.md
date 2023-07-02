@@ -1,6 +1,6 @@
 # thinq-notifier
 
-At the top of every hour, check if the last event was the completion of a washing machine cycle, if the event occurred more than the threshold number of hours prior to the current time, if the dryer has not been started yet, and if the notification frequency has been met. If all conditions are met, send an email using AWS SNS.
+Every 15 minutes, check if the washing machine has finished since the last run, if it finished more than the threshold number of hours prior to the current time, if the dryer has not been started yet, and if the notification frequency has been met. If all conditions are met, send an email using AWS SNS.
 
 Recently added: sending notifications when the washer has run more than 30 cycles without a tub clean cycle.
 
@@ -28,7 +28,3 @@ The examples below assume:
 | 12:00 PM     | 8:55 AM           | Washer            | Y                   | -                   | N                | Dryer is running                                                         |
 | 3:00 PM      | 8:55 AM           | Washer            | Y                   | 12:00 PM            | N                | Dryer is running                                                         |
 | 12:00 PM     | 8:55 AM           | Dryer             | N                   | -                   | N                | Latest event was the dryer                                               |
-
-## Current limitations
-
-- A notification will not be sent if the washer and dryer are running at the same time and the washer finishes first. It will see the most recent event was from the dryer and not see that the washer finished right before that which would mean the washer is still full.

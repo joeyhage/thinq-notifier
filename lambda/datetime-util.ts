@@ -49,3 +49,7 @@ export function isQuietHours(now?: Date): boolean {
   }
   return false;
 }
+
+export function minToMs(minutes: number): number {
+  return minutes * 60 * 1000;
+}

@@ -1,4 +1,4 @@
-import { shouldSendRepeatNotification } from "../lambda/index";
+import { shouldSendRepeatNotification } from "../lambda/util";
 
 describe("test shouldSendRepeatNotification given `NOTIFICATION_FREQ_HRS`=3 and `MAX_NOTIFICATIONS`=2", () => {
 
