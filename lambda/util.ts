@@ -232,6 +232,7 @@ export interface ThinQState {
   dryerStartTime?: number;
   washEndTime?: number;
   tclDue?: boolean;
+  tclCount?: number;
   tclNotifiedAtCycle?: number;
 }
 

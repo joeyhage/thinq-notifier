@@ -34,13 +34,18 @@ export const handler = async (): Promise<void> => {
 
     const newThinqState = {
       ...thinqState,
+      tclCount: cyclesSinceTubClean,
       tclDue: cyclesSinceTubClean > 30,
       washerRunning: util.isRunning(washerSnapshot),
       dryerRunning: util.isRunning(dryerSnapshot),
     };
 
     if (newThinqState.dryerRunning) {
-      newThinqState.dryerStartTime = now.getTime() - minToMs(washerSnapshot.initialTimeMinute - dryerSnapshot.remainTimeMinute);
+      newThinqState.dryerStartTime =
+        now.getTime() -
+        minToMs(
+          washerSnapshot.initialTimeMinute - dryerSnapshot.remainTimeMinute
+        );
     }
 
     if (newThinqState.washerRunning) {
@@ -48,9 +53,19 @@ export const handler = async (): Promise<void> => {
 
       newThinqState.washEndTime =
         now.getTime() + minToMs(washTimeRemainingMins);
-      newThinqState.washStartTime =
-        newThinqState.washEndTime - minToMs(washerSnapshot.initialTimeMinute);
-      newThinqState.washCourse = washerSnapshot.course;
+
+      if (
+        typeof thinqState.tclCount === "number" &&
+        thinqState.tclCount !== newThinqState.tclCount
+      ) {
+        newThinqState.washStartTime =
+          newThinqState.washEndTime - minToMs(washerSnapshot.initialTimeMinute);
+        newThinqState.washCourse = washerSnapshot.course;
+      } else {
+        console.info(
+          "Not updating course or wash start time because it appears the same cycle is still running."
+        );
+      }
     } else if (thinqState.washCourse?.toUpperCase() === "TUB_CLEAN") {
       console.info(
         "Not sending any notifications since most recent wash was a tub clean"
@@ -60,7 +75,9 @@ export const handler = async (): Promise<void> => {
       const washEndDate = new Date(thinqState.washEndTime);
       const washEndDateStr = formatDate(washEndDate);
       const dryerStartDateStr = formatDate(new Date(thinqState.dryerStartTime));
-      console.log(`Most recent wash cycle finished at ${washEndDateStr}, wash type: ${thinqState.washCourse}`);
+      console.log(
+        `Most recent wash cycle finished at ${washEndDateStr}, wash type: ${thinqState.washCourse}`
+      );
       console.log(`Most recent dry cycle started at ${dryerStartDateStr}`);
 
       const thresholdDatetime = determineThresholdDatetime(washEndDate);
@@ -79,7 +96,7 @@ export const handler = async (): Promise<void> => {
         console.log(`Conditions to send notification were not met.`);
       }
     } else {
-      console.log('Not enough information is available to determine state.')
+      console.log("Not enough information is available to determine state.");
     }
 
     if (
