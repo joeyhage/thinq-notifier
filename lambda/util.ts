@@ -180,7 +180,7 @@ export function shouldSendRepeatNotification(thresholdDatetime: Date): boolean {
 
   console.log({ hoursSinceThreshold, notificationFreqHrs, maxNotifications });
   return (
-    hoursSinceThreshold % notificationFreqHrs <= 0.25 &&
+    hoursSinceThreshold % notificationFreqHrs < 0.25 &&
     Math.floor(hoursSinceThreshold / notificationFreqHrs) < maxNotifications
   );
 }
@@ -205,6 +205,10 @@ export function hasNotAlreadyNotifiedThisCycle(
       thinqState.tclDue !== newThinqState.tclDue) ||
     thinqState.tclNotifiedAtCycle !== cyclesSinceTubClean
   );
+}
+
+export function isRunning(snapshot: {state?: string}) {
+  return typeof snapshot.state === 'string' && snapshot.state.toUpperCase() !== 'POWEROFF'
 }
 
 export const washerTypes = [

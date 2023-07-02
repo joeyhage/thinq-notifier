@@ -35,10 +35,10 @@ export const handler = async (): Promise<void> => {
     const newThinqState = {
       ...thinqState,
       tclDue: cyclesSinceTubClean > 30,
-      washerRunning: washerSnapshot.state.toUpperCase() === "RUNNING",
+      washerRunning: util.isRunning(washerSnapshot),
     };
 
-    const dryerRunning = dryerSnapshot.state.toUpperCase() === "RUNNING"
+    const dryerRunning = util.isRunning(dryerSnapshot)
     if (dryerRunning) {
       newThinqState.dryerStartTime = now.getTime() - minToMs(washerSnapshot.initialTimeMinute - dryerSnapshot.remainTimeMinute);
     }
@@ -66,7 +66,7 @@ export const handler = async (): Promise<void> => {
 
       if (
         !dryerRunning &&
-        thinqState.dryerStartTime > thinqState.washEndTime &&
+        thinqState.dryerStartTime < thinqState.washEndTime &&
         hasThresholdTimePassed(thresholdDatetime) &&
         util.shouldSendRepeatNotification(thresholdDatetime)
       ) {
