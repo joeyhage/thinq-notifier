@@ -199,15 +199,12 @@ export async function triggerAnnouncement(webhookUrl?: string): Promise<void> {
 
 export function hasNotAlreadyNotifiedThisCycle(
   thinqState: ThinQState,
-  newThinqState: {
-    tclDue: boolean;
-    washerRunning: boolean;
-    washStartTime: number;
-    tclNotifiedAtCycle: number;
-  },
+  newThinqState: ThinQState,
   cyclesSinceTubClean: number
 ) {
   return (
+    typeof thinqState.tclDue === 'boolean' &&
+    typeof thinqState.tclNotifiedAtCycle === 'number' &&
     thinqState.tclDue !== newThinqState.tclDue ||
     thinqState.tclNotifiedAtCycle !== cyclesSinceTubClean
   );
@@ -227,12 +224,12 @@ export interface AppSecrets {
 }
 
 export interface ThinQState {
-  washCourse: string;
-  washerRunning: boolean;
-  washStartTime: number;
-  washEndTime: number;
-  tclDue: boolean;
-  tclNotifiedAtCycle: number;
+  washCourse?: string;
+  washerRunning?: boolean;
+  washStartTime?: number;
+  washEndTime?: number;
+  tclDue?: boolean;
+  tclNotifiedAtCycle?: number;
 }
 
 export interface LaundryDevices {

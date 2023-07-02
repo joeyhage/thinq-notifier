@@ -1,31 +1,29 @@
-import * as util from "./util";
 import {
   determineThresholdDatetime,
   formatDate,
   hasThresholdTimePassed,
   isQuietHours,
   minToMs,
-  wasOneHourOrLessAgo,
 } from "./datetime-util";
+import * as util from "./util";
 
 export const handler = async (): Promise<void> => {
   const region = process.env.AWS_REGION;
   try {
-    const { username, password, clientId, webhookUrl } =
-      await util.getAppSecrets(region);
+    const { username, password, webhookUrl } = await util.getAppSecrets(region);
 
     const api = await util.initApi(username, password);
 
     const { washer, dryer } = await util.findLaundry(api);
 
+    const washerSnapshot = washer.snapshot?.washerDryer;
     if (
       typeof washer === "undefined" ||
       typeof dryer === "undefined" ||
-      !washer.snapshot?.washerDryer
+      !washerSnapshot
     ) {
       throw new Error("ThinQ API returned an unexpected response");
     }
-    const washerSnapshot = washer.snapshot.washerDryer;
     const cyclesSinceTubClean = Number(washerSnapshot.TCLCount || 0);
 
     const thinqState = await util.getThinQState(region);
@@ -35,10 +33,10 @@ export const handler = async (): Promise<void> => {
     const newThinqState = {
       ...thinqState,
       tclDue: cyclesSinceTubClean > 30,
-      washerRunning: washerSnapshot.state.toUpperCase() === "RUNNING",
+      washerRunning: washerSnapshot.state?.toUpperCase() === "RUNNING",
     };
 
-    if (thinqState.washCourse.toUpperCase() === "TUB CLEAN") {
+    if (thinqState.washCourse?.toUpperCase() === "TUB CLEAN") {
       console.info(
         "Not sending any notifications since most recent wash was a tub clean"
       );
@@ -51,7 +49,7 @@ export const handler = async (): Promise<void> => {
       newThinqState.washStartTime =
         newThinqState.washEndTime - minToMs(washerSnapshot.initialTimeMinute);
       newThinqState.washCourse = washerSnapshot.course;
-    } else {
+    } else if (thinqState.washEndTime) {
       const washEndDate = new Date(thinqState.washEndTime);
       const formattedEndDate = formatDate(washEndDate);
       console.log(`Most recent event was at ${formattedEndDate}`);
@@ -85,7 +83,8 @@ export const handler = async (): Promise<void> => {
         region
       );
     }
-    
+
+    console.log({ thinqState, newThinqState });
     await util.setThinQState(region, newThinqState);
   } catch (e: any) {
     console.error(`Uncaught exception`, e);
