@@ -7,7 +7,20 @@ describe("test shouldSendRepeatNotification given `NOTIFICATION_FREQ_HRS`=3 and 
     process.env.MAX_NOTIFICATIONS = "2";
   });
 
-  test("should send repeat notification given notification threshold was 3 hours ago", async () => {
+  test("should send repeat notification given notification threshold was 3 hours 10 minutes ago", async () => {
+    // given
+    const thresholdTime = new Date();
+    thresholdTime.setHours(thresholdTime.getHours() - 3);
+    thresholdTime.setMinutes(thresholdTime.getMinutes() - 10);
+
+    // when
+    const result = shouldSendRepeatNotification(thresholdTime);
+
+    // then
+    expect(result).toBe(true);
+  });
+
+  test("should not send repeat notification given notification threshold was 3 hours 20 minutes ago", async () => {
     // given
     const thresholdTime = new Date();
     thresholdTime.setHours(thresholdTime.getHours() - 3);
@@ -17,7 +30,7 @@ describe("test shouldSendRepeatNotification given `NOTIFICATION_FREQ_HRS`=3 and 
     const result = shouldSendRepeatNotification(thresholdTime);
 
     // then
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
   test("should not repeat notification given notification threshold was 6 hours ago", async () => {
