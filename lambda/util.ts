@@ -224,6 +224,7 @@ export interface ThinQState {
   washCourse?: string;
   washerRunning?: boolean;
   washStartTime?: number;
+  dryerStartTime?: number;
   washEndTime?: number;
   tclDue?: boolean;
   tclNotifiedAtCycle?: number;

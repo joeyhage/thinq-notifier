@@ -16,11 +16,13 @@ export const handler = async (): Promise<void> => {
 
     const { washer, dryer } = await util.findLaundry(api);
 
-    const washerSnapshot = washer.snapshot?.washerDryer;
+    const washerSnapshot = washer.data.snapshot?.washerDryer;
+    const dryerSnapshot = dryer.data.snapshot?.washerDryer;
     if (
       typeof washer === "undefined" ||
       typeof dryer === "undefined" ||
-      !washerSnapshot
+      !washerSnapshot ||
+      !dryerSnapshot
     ) {
       throw new Error("ThinQ API returned an unexpected response");
     }
@@ -33,15 +35,15 @@ export const handler = async (): Promise<void> => {
     const newThinqState = {
       ...thinqState,
       tclDue: cyclesSinceTubClean > 30,
-      washerRunning: washerSnapshot.state?.toUpperCase() === "RUNNING",
+      washerRunning: washerSnapshot.state.toUpperCase() === "RUNNING",
     };
 
-    if (thinqState.washCourse?.toUpperCase() === "TUB CLEAN") {
-      console.info(
-        "Not sending any notifications since most recent wash was a tub clean"
-      );
-      return;
-    } else if (newThinqState.washerRunning) {
+    const dryerRunning = dryerSnapshot.state.toUpperCase() === "RUNNING"
+    if (dryerRunning) {
+      newThinqState.dryerStartTime = now.getTime() - minToMs(washerSnapshot.initialTimeMinute - dryerSnapshot.remainTimeMinute);
+    }
+
+    if (newThinqState.washerRunning) {
       const washTimeRemainingMins = washerSnapshot.remainTimeMinute;
 
       newThinqState.washEndTime =
@@ -49,16 +51,22 @@ export const handler = async (): Promise<void> => {
       newThinqState.washStartTime =
         newThinqState.washEndTime - minToMs(washerSnapshot.initialTimeMinute);
       newThinqState.washCourse = washerSnapshot.course;
-    } else if (thinqState.washEndTime) {
+    } else if (thinqState.washCourse?.toUpperCase() === "TUB_CLEAN") {
+      console.info(
+        "Not sending any notifications since most recent wash was a tub clean"
+      );
+      return;
+    } else if (thinqState.washEndTime && thinqState.dryerStartTime) {
       const washEndDate = new Date(thinqState.washEndTime);
       const formattedEndDate = formatDate(washEndDate);
-      console.log(`Most recent event was at ${formattedEndDate}`);
+      console.log(`Most recent wash was at ${formattedEndDate}`);
 
       const thresholdDatetime = determineThresholdDatetime(washEndDate);
       console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
 
       if (
-        util.isDryerOff(dryer) &&
+        !dryerRunning &&
+        thinqState.dryerStartTime > thinqState.washEndTime &&
         hasThresholdTimePassed(thresholdDatetime) &&
         util.shouldSendRepeatNotification(thresholdDatetime)
       ) {
