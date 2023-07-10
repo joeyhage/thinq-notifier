@@ -38,10 +38,10 @@ export const handler = async (): Promise<void> => {
       tclDue: cyclesSinceTubClean > 30,
       washerRunning: util.isRunning(washerSnapshot),
       dryerRunning: util.isRunning(dryerSnapshot),
-      dryerRemainTimeMin: dryerSnapshot.remainTimeMinute
+      dryerRemainTimeMin: dryerSnapshot.remainTimeMinute,
     };
 
-    if (newThinqState.dryerRunning && (newThinqState.dryerRemainTimeMin ?? 0) > (thinqState.dryerRemainTimeMin ?? 0)) {
+    if (util.newDryCycleStarted(newThinqState, thinqState)) {
       newThinqState.dryerStartTime =
         now.getTime() -
         minToMs(
@@ -49,7 +49,14 @@ export const handler = async (): Promise<void> => {
         );
     }
 
-    if (newThinqState.washerRunning) {
+    if (
+      !newThinqState.washerRunning &&
+      thinqState.washCourse?.toUpperCase() === "TUB_CLEAN"
+    ) {
+      console.info(
+        "Not sending any notifications since most recent wash was a tub clean"
+      );
+    } else if (newThinqState.washerRunning) {
       const washTimeRemainingMins = washerSnapshot.remainTimeMinute;
 
       newThinqState.washEndTime =
@@ -67,26 +74,15 @@ export const handler = async (): Promise<void> => {
           "Not updating course or wash start time because it appears the same cycle is still running."
         );
       }
-    } else if (thinqState.washCourse?.toUpperCase() === "TUB_CLEAN") {
-      console.info(
-        "Not sending any notifications since most recent wash was a tub clean"
-      );
-      return;
     } else if (thinqState.washEndTime && thinqState.dryerStartTime) {
-      const washEndDate = new Date(thinqState.washEndTime);
-      const washEndDateStr = formatDate(washEndDate);
-      const dryerStartDateStr = formatDate(new Date(thinqState.dryerStartTime));
-      console.log(
-        `Most recent wash cycle finished at ${washEndDateStr}, wash type: ${thinqState.washCourse}`
-      );
-      console.log(`Most recent dry cycle started at ${dryerStartDateStr}`);
+      const { washEndDate, washEndDateStr } =
+        determineWashEndDateStr(thinqState);
 
       const thresholdDatetime = determineThresholdDatetime(washEndDate);
       console.log(`Threshold datetime is ${formatDate(thresholdDatetime)}`);
 
       if (
-        !newThinqState.dryerRunning &&
-        thinqState.dryerStartTime < thinqState.washEndTime &&
+        !util.wasWashUnloaded(thinqState, newThinqState) &&
         hasThresholdTimePassed(thresholdDatetime) &&
         util.shouldSendRepeatNotification(thresholdDatetime)
       ) {
@@ -100,21 +96,14 @@ export const handler = async (): Promise<void> => {
       console.log("Not enough information is available to determine state.");
     }
 
-    if (
-      newThinqState.tclDue &&
-      cyclesSinceTubClean % 3 === 0 &&
-      util.hasNotAlreadyNotifiedThisCycle(
-        thinqState,
-        newThinqState,
-        cyclesSinceTubClean
-      )
-    ) {
-      newThinqState.tclNotifiedAtCycle = cyclesSinceTubClean;
-      await util.publishMessage(
-        `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
-        region
-      );
-    }
+    await maybeSendWashFinishedNotification(thinqState, newThinqState, region);
+
+    await maybeSendTclNotification(
+      newThinqState,
+      cyclesSinceTubClean,
+      thinqState,
+      region
+    );
 
     console.log({ thinqState, newThinqState });
     await util.setThinQState(region, newThinqState);
@@ -126,3 +115,94 @@ export const handler = async (): Promise<void> => {
     );
   }
 };
+
+async function maybeSendWashFinishedNotification(
+  thinqState: util.ThinQState,
+  newThinqState: {
+    tclCount: number;
+    tclDue: boolean;
+    washerRunning: boolean;
+    dryerRunning: boolean;
+    dryerRemainTimeMin: any;
+    washCourse?: string | undefined;
+    washStartTime?: number | undefined;
+    dryerStartTime?: number | undefined;
+    washEndTime?: number | undefined;
+    tclNotifiedAtCycle?: number | undefined;
+  },
+  region: string | undefined
+) {
+  if (
+    washJustFinished(thinqState, newThinqState) &&
+    !util.wasWashUnloaded(thinqState, newThinqState)
+  ) {
+    const { washEndDateStr } = determineWashEndDateStr(thinqState);
+    await util.publishUnloadMessage(washEndDateStr, region);
+  }
+}
+
+async function maybeSendTclNotification(
+  newThinqState: {
+    tclCount: number;
+    tclDue: boolean;
+    washerRunning: boolean;
+    dryerRunning: boolean;
+    dryerRemainTimeMin: any;
+    washCourse?: string | undefined;
+    washStartTime?: number | undefined;
+    dryerStartTime?: number | undefined;
+    washEndTime?: number | undefined;
+    tclNotifiedAtCycle?: number | undefined;
+  },
+  cyclesSinceTubClean: number,
+  thinqState: util.ThinQState,
+  region: string | undefined
+) {
+  if (
+    newThinqState.tclDue &&
+    cyclesSinceTubClean % 3 === 0 &&
+    util.hasNotAlreadyNotifiedThisCycle(
+      thinqState,
+      newThinqState,
+      cyclesSinceTubClean
+    )
+  ) {
+    newThinqState.tclNotifiedAtCycle = cyclesSinceTubClean;
+    await util.publishMessage(
+      `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
+      region
+    );
+  }
+}
+
+function washJustFinished(
+  thinqState: util.ThinQState,
+  newThinqState: {
+    tclCount: number;
+    tclDue: boolean;
+    washerRunning: boolean;
+    dryerRunning: boolean;
+    dryerRemainTimeMin: any;
+    washCourse?: string | undefined;
+    washStartTime?: number | undefined;
+    dryerStartTime?: number | undefined;
+    washEndTime?: number | undefined;
+    tclNotifiedAtCycle?: number | undefined;
+  }
+) {
+  return thinqState.washerRunning && !newThinqState.washerRunning;
+}
+
+function determineWashEndDateStr(thinqState: util.ThinQState): {
+  washEndDate: Date;
+  washEndDateStr: string;
+} {
+  const washEndDate = new Date(thinqState.washEndTime!);
+  const washEndDateStr = formatDate(washEndDate);
+  const dryerStartDateStr = formatDate(new Date(thinqState.dryerStartTime!));
+  console.log(
+    `Most recent wash cycle finished at ${washEndDateStr}, wash type: ${thinqState.washCourse}`
+  );
+  console.log(`Most recent dry cycle started at ${dryerStartDateStr}`);
+  return { washEndDate, washEndDateStr };
+}

@@ -207,8 +207,32 @@ export function hasNotAlreadyNotifiedThisCycle(
   );
 }
 
-export function isRunning(snapshot: {state?: string}) {
-  return typeof snapshot.state === 'string' && snapshot.state.toUpperCase() !== 'POWEROFF'
+export function isRunning(snapshot: { state?: string }) {
+  return (
+    typeof snapshot.state === "string" &&
+    snapshot.state.toUpperCase() !== "POWEROFF"
+  );
+}
+
+export function wasWashUnloaded(
+  thinqState: ThinQState,
+  newThinqState: ThinQState
+) {
+  return (
+    newThinqState.dryerRunning ||
+    (thinqState.dryerStartTime ?? -1) >= (thinqState.washEndTime ?? 0)
+  );
+}
+
+export function newDryCycleStarted(
+  newThinqState: ThinQState,
+  thinqState: ThinQState
+) {
+  return (
+    newThinqState.dryerRunning &&
+    (newThinqState.dryerRemainTimeMin ?? 0) >
+      (thinqState.dryerRemainTimeMin ?? 0)
+  );
 }
 
 export const washerTypes = [
