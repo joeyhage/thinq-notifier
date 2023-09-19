@@ -22,7 +22,7 @@ export class ThinqNotifierStack extends cdk.Stack {
     const stateStoreName = "/live/thinq-notifier/state";
 
     const fn = new lambda.NodejsFunction(this, "LgNotifierLambda", {
-      runtime: Runtime.NODEJS_14_X,
+      runtime: Runtime.NODEJS_18_X,
       entry: path.resolve(__dirname, "../lambda/index.ts"),
       timeout: cdk.Duration.seconds(10),
       bundling: {
