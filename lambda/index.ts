@@ -121,18 +121,7 @@ export const handler = async (): Promise<void> => {
 
 async function maybeSendWashFinishedNotification(
   thinqState: util.ThinQState,
-  newThinqState: {
-    tclCount: number;
-    tclDue: boolean;
-    washerRunning: boolean;
-    dryerRunning: boolean;
-    dryerRemainTimeMin: any;
-    washCourse?: string | undefined;
-    washStartTime?: number | undefined;
-    dryerStartTime?: number | undefined;
-    washEndTime?: number | undefined;
-    tclNotifiedAtCycle?: number | undefined;
-  },
+  newThinqState: util.ThinQState,
   region: string | undefined
 ) {
   if (
@@ -145,18 +134,7 @@ async function maybeSendWashFinishedNotification(
 }
 
 async function maybeSendTclNotification(
-  newThinqState: {
-    tclCount: number;
-    tclDue: boolean;
-    washerRunning: boolean;
-    dryerRunning: boolean;
-    dryerRemainTimeMin: any;
-    washCourse?: string | undefined;
-    washStartTime?: number | undefined;
-    dryerStartTime?: number | undefined;
-    washEndTime?: number | undefined;
-    tclNotifiedAtCycle?: number | undefined;
-  },
+  newThinqState: util.ThinQState,
   cyclesSinceTubClean: number,
   thinqState: util.ThinQState,
   region: string | undefined
@@ -180,18 +158,7 @@ async function maybeSendTclNotification(
 
 function washJustFinished(
   thinqState: util.ThinQState,
-  newThinqState: {
-    tclCount: number;
-    tclDue: boolean;
-    washerRunning: boolean;
-    dryerRunning: boolean;
-    dryerRemainTimeMin: any;
-    washCourse?: string | undefined;
-    washStartTime?: number | undefined;
-    dryerStartTime?: number | undefined;
-    washEndTime?: number | undefined;
-    tclNotifiedAtCycle?: number | undefined;
-  }
+  newThinqState: util.ThinQState
 ) {
   return thinqState.washerRunning && !newThinqState.washerRunning;
 }
