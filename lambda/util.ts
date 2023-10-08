@@ -120,18 +120,20 @@ export async function publishUnloadMessage(
 ): Promise<void> {
   await publishMessage(
     `Hello,\n\nThe washer finished at ${datetime}.\n\nDon't forget to unload the clothes!`,
+    "Washing machine cycle finished",
     region
   );
 }
 
 export async function publishMessage(
   message: string,
+  subject: string,
   region = "us-east-1"
 ): Promise<void> {
   console.log(`Sending notification with message: ${message}`);
   await new SNSClient({ region }).send(
     new PublishCommand({
-      Subject: "LG ThinQ Laundry Notification",
+      Subject: subject,
       Message: message,
       TopicArn: process.env.TOPIC_ARN,
     })

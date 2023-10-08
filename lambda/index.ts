@@ -93,7 +93,7 @@ export const handler = async (): Promise<void> => {
           ? await util.publishUnloadMessage(washEndDateStr, region)
           : await util.triggerAnnouncement(webhookUrl);
       } else {
-        console.log(`Conditions to send notification were not met.`);
+        console.log("Conditions to send notification were not met.");
       }
     } else {
       console.log("Not enough information is available to determine state.");
@@ -114,6 +114,7 @@ export const handler = async (): Promise<void> => {
     console.error(`Uncaught exception`, e);
     await util.publishMessage(
       e.message || "Uncaught exception. Check logs.",
+      "ThinQ Notifier: an error occurred",
       region
     );
   }
@@ -151,6 +152,7 @@ async function maybeSendTclNotification(
     newThinqState.tclNotifiedAtCycle = cyclesSinceTubClean;
     await util.publishMessage(
       `Hello,\n\n${cyclesSinceTubClean} washer cycles have run since the last tub clean. Please clean the washing machine.`,
+      "Washing machine tub clean required",
       region
     );
   }
